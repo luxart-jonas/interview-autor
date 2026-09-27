@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Interview-Schnitt — Kollegen-Version (Web)</title>
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --bg2: #242424;
+    --panel: #2a2a2a;
+    --gold: #d4af37;
+    --gold-soft: #c8a96e;
+    --text: #eee;
+    --text-dim: #999;
+    --border: #3a3a3a;
+    --danger: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0; padding: 28px; font-size: 16px; line-height: 1.5;
+  }
+  h1 { color: var(--gold); font-size: 28px; margin-bottom: 6px; }
+  .sub { color: var(--text-dim); margin-bottom: 28px; font-size: 16px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 26px; margin-bottom: 24px;
+  }
+  .panel h2 {
+    margin-top: 0; margin-bottom: 6px; font-size: 22px; color: var(--gold-soft);
+    display: flex; align-items: center; gap: 14px; line-height: 1.2;
+  }
+  .step-num {
+    flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%;
+    background: var(--gold); color: #1a1a1a; font-size: 18px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .panel-toggle {
+    margin-left: auto; margin-top: 0; min-height: auto; flex: 0 0 auto;
+    background: transparent; color: var(--text-dim); border: 1px solid var(--border);
+    border-radius: 6px; width: 34px; height: 34px; padding: 0; font-size: 16px;
+  }
+  .panel-toggle:hover { background: var(--bg2); color: var(--gold-soft); }
+  .panel.panel-collapsed { padding-bottom: 26px; }
+  .panel.panel-collapsed h2 { margin-bottom: 0; }
+  label { display: block; margin: 14px 0 6px; font-size: 15px; color: var(--text-dim); }
+  input[type=file], input[type=text], select, input[type=number] {
+    background: var(--bg2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; width: 100%; font-size: 16px;
+  }
+  button {
+    background: var(--gold); color: #1a1a1a; border: none; border-radius: 8px;
+    padding: 15px 26px; font-weight: 700; cursor: pointer; font-size: 16px;
+    margin-top: 14px; min-height: 52px;
+  }
+  button:hover { background: var(--gold-soft); }
+  button.secondary { background: var(--bg2); color: var(--gold-soft); border: 2px solid var(--gold-soft); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #status-line { font-size: 15px; color: var(--gold-soft); margin-top: 12px; font-weight: 600; }
+  .hidden { display: none !important; }
+
+  .main-layout { display: flex; gap: 18px; align-items: flex-start; }
+  #transcript-panel, #clips-panel { flex: 1; min-width: 0; }
+
+  #search-box { margin-bottom: 10px; }
+  #word-stream {
+    max-height: 60vh; overflow-y: auto; line-height: 2.1;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px; font-size: 15px;
+  }
+  .word { cursor: pointer; padding: 1px 2px; border-radius: 3px; display: inline-block; }
+  .word:hover { background: #3a3a2a; }
+  .word.selected { background: var(--gold); color: #1a1a1a; }
+  .word.match { outline: 2px solid #5599ff; }
+  .word.uncertain { border-bottom: 2px dotted var(--danger); }
+  .word.playing { background: #4a3f1a; outline: 2px solid var(--gold); }
+
+  #player-wrap {
+    margin-bottom: 14px; position: sticky; top: 0; z-index: 5;
+    background: var(--panel); padding-top: 2px; padding-bottom: 6px;
+  }
+  #preview-player { width: 100%; max-height: 40vh; background: #000; border-radius: 8px; display: block; }
+  #player-hint { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  button.preview-clip {
+    background: var(--bg); color: var(--gold); border: 1px solid var(--gold-soft);
+    border-radius: 4px; padding: 2px 8px; font-size: 11px; margin: 0 0 0 6px; min-height: auto;
+  }
+
+  #clip-list { list-style: none; padding: 0; margin: 0; max-height: 60vh; overflow-y: auto; }
+  #clip-list li {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; margin-bottom: 6px; font-size: 13px; cursor: grab;
+  }
+  #clip-list li.dragging { opacity: 0.4; }
+  #clip-list .clip-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
+  #clip-list .clip-text { flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 80px; }
+  #clip-list .clip-time { color: var(--gold-soft); font-size: 11px; white-space: nowrap; }
+  #clip-list button.remove { background: transparent; color: var(--danger); font-size: 16px; padding: 0 4px; margin: 0; min-height: auto; }
+  #clip-list button.move-up, #clip-list button.move-down {
+    background: var(--bg); color: var(--gold-soft); border: 1px solid var(--border);
+    font-size: 11px; padding: 1px 6px; margin: 0; min-height: auto;
+  }
+  #clip-list button.move-up:disabled, #clip-list button.move-down:disabled { opacity: 0.25; cursor: default; }
+  .nudge-row {
+    display: flex; align-items: center; gap: 6px; margin-top: 6px;
+    padding-top: 6px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-dim);
+  }
+  .nudge-row .nudge-group { display: flex; align-items: center; gap: 3px; }
+  .nudge-row button.nudge {
+    background: var(--bg); color: var(--gold-soft); border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 7px; font-size: 11px; margin: 0; font-weight: 400; min-height: auto;
+  }
+  .nudge-row button.nudge:hover { background: #3a3a2a; }
+
+  .clip-source {
+    font-size: 10px; color: var(--gold-soft); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; white-space: nowrap;
+  }
+
+  #source-list { list-style: none; padding: 0; margin: 12px 0 0; }
+  #source-list li {
+    background: var(--bg2); border: 2px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; margin-bottom: 8px; font-size: 16px; cursor: pointer; font-weight: 600;
+  }
+  #source-list li:hover { background: #302f28; }
+  #source-list li.active { border-color: var(--gold); background: #3a3320; color: var(--gold); font-weight: 700; }
+
+  .hint { font-size: 14px; color: var(--text-dim); margin-top: 10px; }
+  #export-result { margin-top: 14px; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<h1>Interview-Schnitt <span style="font-size:13px; color:var(--text-dim); font-weight:400;">Kollegen-Version · Web v1</span></h1>
+<div class="sub">Läuft komplett im Browser — kein Server, keine Installation. Ordner mit Video + JSON öffnen, Text bearbeiten, fertigen Schnitt-Text zurückgeben.</div>
+<div id="status-line"></div>
+
+<div class="panel" id="upload-panel">
+  <h2><span class="step-num">1</span> Ordner öffnen <button type="button" class="panel-toggle" id="upload-panel-toggle" title="Ein-/ausklappen">▾</button></h2>
+  <div class="panel-body" id="upload-panel-body">
+  <div class="hint" style="margin-top:0;">
+    Wähle den Ordner, den du bekommen hast (z.B. „Murmeltier“): darin liegen Video- und <code>.json</code>-Datei mit demselben Namen. Diese Version berechnet keine neuen Wortzeiten — die <code>.json</code> muss schon im Ordner liegen.
+  </div>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <button id="resume-session-btn" class="hidden">▶ Weiterarbeiten an „<span id="resume-session-label"></span>“</button>
+    <button id="import-folder-btn">📁 Ordner öffnen</button>
+  </div>
+  <input type="file" id="import-folder-input-fallback" webkitdirectory directory multiple class="hidden">
+  <div id="import-progress-wrap" class="hidden" style="margin-top:16px;">
+    <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; height:22px; overflow:hidden;">
+      <div id="import-progress-bar" style="background:var(--gold); height:100%; width:0%; transition:width .3s;"></div>
+    </div>
+    <div id="import-progress-label" class="hint" style="margin-top:6px;"></div>
+  </div>
+  </div>
+</div>
+
+<div class="panel hidden" id="sources-panel">
+  <h2><span class="step-num">2</span> Geladene Interviews <button type="button" class="panel-toggle" id="sources-panel-toggle" title="Ein-/ausklappen">▾</button></h2>
+  <div class="panel-body" id="sources-panel-body">
+  <div class="hint" style="margin-top:0;">Klicke ein Interview an, um Text und Video darauf umzuschalten.</div>
+  <ul id="source-list"></ul>
+  </div>
+</div>
+
+<div class="panel hidden" id="paste-panel">
+  <h2><span class="step-num">3</span> Text bearbeiten</h2>
+  <div class="hint" style="margin-top:0;">Passagen, die raus sollen, einfach löschen. Für einen Schnitt MITTEN im Satz ein „+" an die Stelle setzen. Für getrennte Abschnitte eine Zeile mit NUR „+" dazwischen.</div>
+  <textarea id="paste-text" rows="16" style="width:100%; background:var(--bg2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:14px; font-size:16px; margin-top:8px;" placeholder="Text erscheint hier automatisch, sobald ein Interview geladen ist ..."></textarea>
+  <button id="match-paste-btn">Clips aus Text erzeugen</button>
+  <div id="paste-result" style="margin-top:10px; font-size:13px;"></div>
+</div>
+
+<div class="panel hidden" id="editor-panel">
+  <h2><span class="step-num">4</span> Passagen markieren, sortieren, zurückgeben</h2>
+  <input type="text" id="search-box" placeholder="Wort suchen (z.B. „Wasser“) — Treffer werden im Text hervorgehoben">
+  <div class="main-layout">
+    <div id="transcript-panel">
+      <div id="player-wrap">
+        <video id="preview-player" controls preload="metadata"></video>
+        <div id="player-hint">Klick auf ein Wort springt im Player an diese Stelle. Beim Abspielen wird das gerade gesprochene Wort im Text markiert.</div>
+      </div>
+      <div class="hint">Klicke ein Wort an, um die Auswahl zu beginnen, und ein weiteres, um sie zu beenden — der markierte Bereich wird zu einem Clip rechts. Nochmal klicken auf ein bereits markiertes Wort hebt die Markierung wieder auf.</div>
+      <div id="word-stream"></div>
+    </div>
+    <div id="clips-panel">
+      <div class="hint">Reihenfolge der Sequenz — Clips per Ziehen oder mit ▲▼ umsortieren.</div>
+      <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center;">
+        <button id="play-sequence-btn" class="secondary">▶ Vorschau Gesamt</button>
+        <button id="stop-sequence-btn" class="secondary hidden">■ Stop</button>
+        <button id="clear-clips-btn" class="secondary" title="Alle Clips aus der Liste löschen" style="color:var(--danger); border-color:var(--danger); padding:10px 13px;">✕</button>
+      </div>
+      <ul id="clip-list"></ul>
+      <div class="hint" style="margin-top:16px;">Fertig? Den Text oben in Schritt 3 (spiegelt automatisch die Reihenfolge/den Stand hier) an Jonas zurückschicken — er macht daraus den finalen Premiere-Export.</div>
+      <button id="download-text-btn" class="secondary">⬇ Fertigen Text als .txt herunterladen</button>
+      <button id="copy-text-btn" class="secondary">📋 Text in Zwischenablage kopieren</button>
+      <div id="export-result"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =======================================================================
+// Interview-Schnitt — Kollegen-Version. Läuft komplett im Browser, ohne
+// jeden Server-Kontakt: kein Whisper, kein ffmpeg, kein Premiere-XML-
+// Export. Setzt voraus, dass Video + fertige *_wortzeiten.json bereits im
+// Ordner liegen (von der vollen Editor/Autor-Version erzeugt). Ergebnis
+// dieser Version ist der bearbeitete Text (mit "+"-Schnittmarkierungen),
+// den man an den Kollegen mit der vollen Version zurückschickt — der
+// macht daraus den fertigen Premiere-Export.
+// =======================================================================
+
+let sources = {};       // sourceId -> { label, wordsData, mediaUrl }
+let activeSourceId = null;
+let currentPlayerSourceId = null;
+let wordsData = null;
+let pendingSelectionStart = null;
+let clips = [];
+let clipCounter = 0;
+let currentPlayingWordEl = null;
+let clipPreviewEndTime = null;
+let sequenceQueue = null;
+
+const previewPlayer = document.getElementById('preview-player');
+const playSequenceBtn = document.getElementById('play-sequence-btn');
+const stopSequenceBtn = document.getElementById('stop-sequence-btn');
+const clearClipsBtn = document.getElementById('clear-clips-btn');
+
+const importFolderBtn = document.getElementById('import-folder-btn');
+const resumeSessionBtn = document.getElementById('resume-session-btn');
+const resumeSessionLabel = document.getElementById('resume-session-label');
+const importFolderInputFallback = document.getElementById('import-folder-input-fallback');
+const importProgressWrap = document.getElementById('import-progress-wrap');
+const importProgressBar = document.getElementById('import-progress-bar');
+const importProgressLabel = document.getElementById('import-progress-label');
+const statusLine = document.getElementById('status-line');
+const editorPanel = document.getElementById('editor-panel');
+const sourcesPanel = document.getElementById('sources-panel');
+const sourceList = document.getElementById('source-list');
+const wordStream = document.getElementById('word-stream');
+const clipList = document.getElementById('clip-list');
+const searchBox = document.getElementById('search-box');
+const pastePanel = document.getElementById('paste-panel');
+const pasteText = document.getElementById('paste-text');
+const matchPasteBtn = document.getElementById('match-paste-btn');
+const pasteResult = document.getElementById('paste-result');
+const downloadTextBtn = document.getElementById('download-text-btn');
+const copyTextBtn = document.getElementById('copy-text-btn');
+const exportResult = document.getElementById('export-result');
+
+// ---------------------------------------------------------------------
+// Ordner-Import (rein clientseitig: JSON + Video werden direkt aus dem
+// lokal ausgewählten Ordner gelesen, nichts wird irgendwohin geschickt).
+// ---------------------------------------------------------------------
+
+const MEDIA_EXT = ['mp4', 'mov', 'm4v', 'mkv', 'avi', 'mpg', 'mpeg', 'wav', 'mp3', 'm4a'];
+
+function splitNameExt(filename) {
+  const dot = filename.lastIndexOf('.');
+  if (dot <= 0) return [filename, ''];
+  return [filename.slice(0, dot), filename.slice(dot + 1).toLowerCase()];
+}
+
+function classifyExt(ext) {
+  if (MEDIA_EXT.includes(ext)) return 'media';
+  if (ext === 'json') return 'wordsJson';
+  return null;
+}
+
+function buildImportGroups(entries) {
+  const groups = {};
+  for (const { file, stem, ext } of entries) {
+    const kind = classifyExt(ext);
+    if (!kind) continue;
+    const key = stem.toLowerCase();
+    if (!groups[key]) groups[key] = { label: stem };
+    groups[key][kind] = file;
+  }
+  return groups;
+}
+
+importFolderBtn.addEventListener('click', async () => {
+  if (window.showDirectoryPicker) {
+    let dirHandle;
+    try {
+      dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+    } catch (e) {
+      return; // Ordner-Dialog abgebrochen
+    }
+    resumeSessionBtn.classList.add('hidden');
+    saveLastDirHandle(dirHandle);
+    const entries = [];
+    for await (const [name, handle] of dirHandle.entries()) {
+      if (handle.kind !== 'file') continue;
+      const [stem, ext] = splitNameExt(name);
+      if (!classifyExt(ext)) continue;
+      entries.push({ file: await handle.getFile(), stem, ext });
+    }
+    await runFolderImport(buildImportGroups(entries));
+  } else {
+    importFolderInputFallback.click();
+  }
+});
+
+importFolderInputFallback.addEventListener('change', async () => {
+  const files = Array.from(importFolderInputFallback.files || []);
+  if (!files.length) return;
+  const entries = [];
+  for (const file of files) {
+    const rel = file.webkitRelativePath || file.name;
+    const base = rel.split('/').pop();
+    const [stem, ext] = splitNameExt(base);
+    if (!classifyExt(ext)) continue;
+    entries.push({ file, stem, ext });
+  }
+  await runFolderImport(buildImportGroups(entries));
+  importFolderInputFallback.value = '';
+});
+
+function setImportProgress(done, total, label) {
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  importProgressBar.style.width = pct + '%';
+  importProgressLabel.textContent = `Interviews werden geladen: ${done}/${total} — ${label}`;
+}
+
+async function runFolderImport(groups) {
+  const keys = Object.keys(groups).filter(k => groups[k].wordsJson);
+  const skippedNoJson = Object.keys(groups).filter(k => !groups[k].wordsJson).map(k => groups[k].label);
+  if (!keys.length) {
+    statusLine.textContent = skippedNoJson.length
+      ? 'Keine passende .json gefunden für: „' + skippedNoJson.join('“, „') + '“. Diese Version berechnet keine neuen Wortzeiten — bitte die *_wortzeiten.json mit in den Ordner legen.'
+      : 'Im gewählten Ordner wurde keine .json-Datei gefunden.';
+    return;
+  }
+
+  importFolderBtn.disabled = true;
+  importProgressWrap.classList.remove('hidden');
+  let done = 0;
+  const total = keys.length;
+  setImportProgress(done, total, 'Start ...');
+
+  for (const key of keys) {
+    const g = groups[key];
+    try {
+      await importGroup(g);
+    } catch (e) {
+      console.error(e);
+      statusLine.textContent = '„' + g.label + '“: Fehler — ' + e.message;
+    }
+    done++;
+    setImportProgress(done, total, done < total ? 'weiter ...' : 'fertig.');
+  }
+
+  importFolderBtn.disabled = false;
+  setTimeout(() => importProgressWrap.classList.add('hidden'), 2000);
+
+  if (Object.keys(sources).length > 0) {
+    setPanelCollapsed('upload-panel', true);
+    setPanelCollapsed('sources-panel', true);
+  }
+}
+
+function setPanelCollapsed(panelId, collapsed) {
+  const panel = document.getElementById(panelId);
+  const body = document.getElementById(panelId + '-body');
+  const toggle = document.getElementById(panelId + '-toggle');
+  if (!panel || !body || !toggle) return;
+  body.classList.toggle('hidden', collapsed);
+  panel.classList.toggle('panel-collapsed', collapsed);
+  toggle.textContent = collapsed ? '▸' : '▾';
+}
+
+document.getElementById('upload-panel-toggle').addEventListener('click', () => {
+  const collapsed = !document.getElementById('upload-panel-body').classList.contains('hidden');
+  setPanelCollapsed('upload-panel', collapsed);
+});
+document.getElementById('sources-panel-toggle').addEventListener('click', () => {
+  const collapsed = !document.getElementById('sources-panel-body').classList.contains('hidden');
+  setPanelCollapsed('sources-panel', collapsed);
+});
+
+// Liest die JSON direkt aus der lokal ausgewählten Datei (kein Server-
+// Roundtrip) und legt — falls ein Video dabei ist — eine lokale
+// blob:-URL für die Vorschau an.
+async function importGroup(g) {
+  const text = await g.wordsJson.text();
+  let wd;
+  try {
+    wd = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Die .json-Datei ist beschädigt oder kein gültiges JSON.');
+  }
+  if (!wd.words || !Array.isArray(wd.words)) {
+    throw new Error('Diese .json enthält keine Wortzeiten (Feld "words" fehlt).');
+  }
+  const sourceId = 's' + (clipCounter++) + '_' + g.label.replace(/[^a-zA-Z0-9]/g, '');
+  const mediaUrl = g.media ? URL.createObjectURL(g.media) : null;
+  sources[sourceId] = { label: g.label, wordsData: wd, mediaUrl, hasMedia: !!g.media };
+
+  editorPanel.classList.remove('hidden');
+  pastePanel.classList.remove('hidden');
+  sourcesPanel.classList.remove('hidden');
+  statusLine.textContent = wd.words.length + ' Wörter geladen — „' + g.label + '“ ist jetzt aktiv.'
+    + (g.media ? '' : ' (kein Video im Ordner gefunden — nur Text-Bearbeitung möglich, keine Vorschau.)');
+
+  await switchActiveSource(sourceId);
+}
+
+// ---------------------------------------------------------------------
+// Session-Wiederherstellung (rein clientseitig, wie in der Vollversion).
+// ---------------------------------------------------------------------
+
+function openHandleDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('interview-schnitt-tool-lite', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('handles');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveLastDirHandle(dirHandle) {
+  try {
+    const db = await openHandleDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('handles', 'readwrite');
+      tx.objectStore('handles').put(dirHandle, 'lastDir');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) { console.warn('Konnte Ordner-Zugriff nicht für nächsten Start merken:', e); }
+}
+
+async function loadLastDirHandle() {
+  try {
+    const db = await openHandleDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction('handles', 'readonly');
+      const req = tx.objectStore('handles').get('lastDir');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) { return null; }
+}
+
+function saveSessionClips() {
+  try {
+    const snapshot = clips.map(c => ({
+      sourceLabel: (sources[c.sourceId] && sources[c.sourceId].label) || '',
+      start: c.start, end: c.end, label: c.label
+    }));
+    localStorage.setItem('ic_last_clips_lite', JSON.stringify(snapshot));
+  } catch (e) { /* egal */ }
+}
+
+function restoreSessionClips() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('ic_last_clips_lite') || '[]'); } catch (e) { return; }
+  if (!saved.length) return;
+  const labelToId = {};
+  Object.keys(sources).forEach(id => { labelToId[sources[id].label] = id; });
+  const restored = saved
+    .filter(c => labelToId[c.sourceLabel])
+    .map(c => ({ clipId: 'c' + (clipCounter++), sourceId: labelToId[c.sourceLabel], start: c.start, end: c.end, label: c.label }));
+  if (restored.length) { clips = restored; renderClips(); }
+}
+
+async function initSessionResume() {
+  if (!window.showDirectoryPicker) return;
+  const dirHandle = await loadLastDirHandle();
+  if (!dirHandle) return;
+
+  let permission;
+  try { permission = await dirHandle.queryPermission({ mode: 'read' }); }
+  catch (e) { return; }
+
+  resumeSessionLabel.textContent = dirHandle.name;
+  resumeSessionBtn.classList.remove('hidden');
+
+  resumeSessionBtn.addEventListener('click', async () => {
+    resumeSessionBtn.disabled = true;
+    if (permission !== 'granted') {
+      const granted = await dirHandle.requestPermission({ mode: 'read' });
+      if (granted !== 'granted') { resumeSessionBtn.disabled = false; return; }
+    }
+    const entries = [];
+    for await (const [name, handle] of dirHandle.entries()) {
+      if (handle.kind !== 'file') continue;
+      const [stem, ext] = splitNameExt(name);
+      if (!classifyExt(ext)) continue;
+      entries.push({ file: await handle.getFile(), stem, ext });
+    }
+    await runFolderImport(buildImportGroups(entries));
+    restoreSessionClips();
+    resumeSessionBtn.classList.add('hidden');
+  }, { once: true });
+}
+
+// ---------------------------------------------------------------------
+// Anzeige / Player / Auswahl — identisch zur Vollversion.
+// ---------------------------------------------------------------------
+
+let sourceSwitchToken = 0;
+
+async function switchActiveSource(sourceId, afterReady) {
+  const myToken = ++sourceSwitchToken;
+  const changingEditor = activeSourceId !== sourceId;
+  activeSourceId = sourceId;
+  if (changingEditor) {
+    wordsData = sources[sourceId].wordsData;
+    renderWords();
+    renderSourceList();
+  }
+  if (currentPlayerSourceId !== sourceId) {
+    currentPlayerSourceId = sourceId;
+    clipPreviewEndTime = null;
+    if (sources[sourceId].mediaUrl) {
+      previewPlayer.src = sources[sourceId].mediaUrl;
+      previewPlayer.load();
+      await new Promise(resolve => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          previewPlayer.removeEventListener('loadedmetadata', finish);
+          previewPlayer.removeEventListener('error', finish);
+          resolve();
+        };
+        previewPlayer.addEventListener('loadedmetadata', finish);
+        previewPlayer.addEventListener('error', finish);
+        setTimeout(finish, 4000);
+      });
+    } else {
+      previewPlayer.removeAttribute('src');
+      previewPlayer.load();
+    }
+    if (myToken !== sourceSwitchToken) return;
+  }
+  if (afterReady) afterReady();
+}
+
+function renderSourceList() {
+  sourceList.innerHTML = '';
+  Object.keys(sources).forEach(id => {
+    const li = document.createElement('li');
+    li.className = id === activeSourceId ? 'active' : '';
+    li.textContent = sources[id].label + (sources[id].hasMedia ? '' : ' (kein Video)');
+    li.addEventListener('click', () => switchActiveSource(id));
+    sourceList.appendChild(li);
+  });
+}
+
+function formatTC(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds - Math.floor(seconds)) * 1000);
+  const pad = (n, l=2) => String(n).padStart(l, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms,3)}`;
+}
+
+function renderWords() {
+  wordStream.innerHTML = '';
+  wordsData.words.forEach(w => {
+    const span = document.createElement('span');
+    span.className = 'word' + (w.uncertain ? ' uncertain' : '');
+    span.dataset.id = w.id;
+    span.dataset.start = w.start;
+    span.dataset.end = w.end;
+    span.title = formatTC(w.start) + ' – ' + formatTC(w.end) + (w.uncertain ? ' (unsicher ausgerichtet)' : '');
+    span.textContent = w.word + ' ';
+    span.addEventListener('click', () => onWordClick(w));
+    wordStream.appendChild(span);
+  });
+}
+
+function onWordClick(word) {
+  switchActiveSource(activeSourceId, () => {
+    stopSequence();
+    clipPreviewEndTime = null;
+    if (sources[activeSourceId].mediaUrl) previewPlayer.currentTime = word.start;
+  });
+
+  if (pendingSelectionStart === null) {
+    pendingSelectionStart = word.id;
+    highlightPending(word.id, word.id);
+  } else {
+    let a = Math.min(pendingSelectionStart, word.id);
+    let b = Math.max(pendingSelectionStart, word.id);
+    addClipFromRange(a, b);
+    pendingSelectionStart = null;
+    clearPendingHighlight();
+  }
+}
+
+function findWordIndexAtTime(t) {
+  const words = wordsData.words;
+  let lo = 0, hi = words.length - 1, ans = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (words[mid].start <= t) { ans = mid; lo = mid + 1; }
+    else { hi = mid - 1; }
+  }
+  return ans;
+}
+
+function playNextInSequence() {
+  if (!sequenceQueue || sequenceQueue.length === 0) {
+    previewPlayer.pause();
+    stopSequence();
+    return;
+  }
+  const clip = sequenceQueue.shift();
+  switchActiveSource(clip.sourceId, () => {
+    if (!sources[clip.sourceId].mediaUrl) { playNextInSequence(); return; }
+    clipPreviewEndTime = clip.end;
+    previewPlayer.currentTime = clip.start;
+    previewPlayer.play();
+  });
+}
+
+function stopSequence() {
+  sequenceQueue = null;
+  clipPreviewEndTime = null;
+  playSequenceBtn.classList.remove('hidden');
+  stopSequenceBtn.classList.add('hidden');
+}
+
+previewPlayer.addEventListener('timeupdate', () => {
+  if (!wordsData) return;
+  const t = previewPlayer.currentTime;
+  if (clipPreviewEndTime !== null && t >= clipPreviewEndTime) {
+    if (sequenceQueue !== null) playNextInSequence();
+    else { previewPlayer.pause(); clipPreviewEndTime = null; }
+    return;
+  }
+  const idx = findWordIndexAtTime(t);
+  if (idx < 0) return;
+  const w = wordsData.words[idx];
+  if (t > w.end + 0.5) return;
+  if (currentPlayingWordEl && currentPlayingWordEl.dataset.id == w.id) return;
+  if (currentPlayingWordEl) currentPlayingWordEl.classList.remove('playing');
+  const el = wordStream.querySelector(`.word[data-id="${w.id}"]`);
+  if (el) {
+    el.classList.add('playing');
+    currentPlayingWordEl = el;
+    const wrapRect = wordStream.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    if (elRect.top < wrapRect.top || elRect.bottom > wrapRect.bottom) {
+      wordStream.scrollTop += (elRect.top - wrapRect.top) - wordStream.clientHeight / 2 + el.offsetHeight;
+    }
+  }
+});
+
+function highlightPending(a, b) {
+  document.querySelectorAll('.word').forEach(el => {
+    const id = parseInt(el.dataset.id);
+    el.classList.toggle('selected', id >= a && id <= b);
+  });
+}
+function clearPendingHighlight() {
+  document.querySelectorAll('.word.selected').forEach(el => el.classList.remove('selected'));
+}
+
+// Fester Sicherheitspuffer (wie in der Vollversion) — hier ohne die
+// Server-basierte Stille-Feinjustierung, dafür sofort und ohne Wartezeit.
+const CLIP_PAD_IN = 0.20;
+const CLIP_PAD_OUT = 0.50;
+
+function applyClipPadding(clip) {
+  clip.start = Math.max(0, clip.start - CLIP_PAD_IN);
+  clip.end = clip.end + CLIP_PAD_OUT;
+}
+
+function addClipFromRange(startId, endId) {
+  const startWord = wordsData.words[startId];
+  const endWord = wordsData.words[endId];
+  const text = wordsData.words.slice(startId, endId + 1).map(w => w.word).join(' ');
+  const clip = {
+    clipId: 'c' + (clipCounter++),
+    sourceId: activeSourceId,
+    start: startWord.start,
+    end: endWord.end,
+    label: text
+  };
+  applyClipPadding(clip);
+  clips.push(clip);
+  renderClips();
+}
+
+function syncPasteTextFromClips() {
+  if (clips.length === 0) return;
+  pasteText.value = clips.map(c => c.label).join('\n+\n');
+}
+
+function renderClips() {
+  clipList.innerHTML = '';
+  clips.forEach((c, idx) => {
+    const srcLabel = (sources[c.sourceId] && sources[c.sourceId].label) || '?';
+    const li = document.createElement('li');
+    li.draggable = true;
+    li.dataset.idx = idx;
+    li.innerHTML = `
+      <div class="clip-top">
+        <span class="clip-source">${escapeHtml(srcLabel)}</span>
+        <span class="clip-text">${escapeHtml(c.label)}</span>
+        <span class="clip-time">${formatTC(c.start)} – ${formatTC(c.end)}</span>
+        <button class="move-up" data-idx="${idx}" ${idx === 0 ? 'disabled' : ''}>▲</button>
+        <button class="move-down" data-idx="${idx}" ${idx === clips.length - 1 ? 'disabled' : ''}>▼</button>
+        <button class="preview-clip" data-idx="${idx}" data-part="full" title="Ganzen Clip abspielen">▶ Clip</button>
+        <button class="preview-clip" data-idx="${idx}" data-part="start" title="Nur die ersten 2 Sek. ab Anfang abspielen">▶ Anfang</button>
+        <button class="preview-clip" data-idx="${idx}" data-part="end" title="Nur die letzten 2 Sek. bis Ende abspielen">▶ Ende</button>
+        <button class="remove" data-idx="${idx}">✕</button>
+      </div>
+      <div class="nudge-row">
+        <span>Anfang:</span>
+        <div class="nudge-group">
+          <button class="nudge" data-idx="${idx}" data-field="start" data-secs="-0.04">−1F</button>
+          <button class="nudge" data-idx="${idx}" data-field="start" data-secs="0.04">+1F</button>
+        </div>
+        <span>Ende:</span>
+        <div class="nudge-group">
+          <button class="nudge" data-idx="${idx}" data-field="end" data-secs="-0.04">−1F</button>
+          <button class="nudge" data-idx="${idx}" data-field="end" data-secs="0.04">+1F</button>
+        </div>
+      </div>
+    `;
+    li.addEventListener('dragstart', (e) => {
+      if (e.target.tagName === 'BUTTON') { e.preventDefault(); return; }
+      li.classList.add('dragging');
+    });
+    li.addEventListener('dragend', () => { li.classList.remove('dragging'); syncOrderFromDOM(); });
+    clipList.appendChild(li);
+  });
+  clipList.querySelectorAll('button.remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.target.dataset.idx);
+      clips.splice(idx, 1);
+      renderClips();
+    });
+  });
+  clipList.querySelectorAll('button.preview-clip').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.currentTarget.dataset.idx);
+      const part = e.currentTarget.dataset.part;
+      const clip = clips[idx];
+      switchActiveSource(clip.sourceId, () => {
+        if (!sources[clip.sourceId].mediaUrl) return;
+        stopSequence();
+        if (part === 'start') {
+          clipPreviewEndTime = Math.min(clip.end, clip.start + 2);
+          previewPlayer.currentTime = clip.start;
+        } else if (part === 'end') {
+          clipPreviewEndTime = clip.end;
+          previewPlayer.currentTime = Math.max(clip.start, clip.end - 2);
+        } else {
+          clipPreviewEndTime = clip.end;
+          previewPlayer.currentTime = clip.start;
+        }
+        previewPlayer.play();
+      });
+    });
+  });
+  clipList.querySelectorAll('button.move-up').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.target.dataset.idx);
+      if (idx > 0) { [clips[idx - 1], clips[idx]] = [clips[idx], clips[idx - 1]]; renderClips(); }
+    });
+  });
+  clipList.querySelectorAll('button.move-down').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.target.dataset.idx);
+      if (idx < clips.length - 1) { [clips[idx], clips[idx + 1]] = [clips[idx + 1], clips[idx]]; renderClips(); }
+    });
+  });
+  clipList.querySelectorAll('button.nudge').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.target.dataset.idx);
+      const field = e.target.dataset.field;
+      const delta = parseFloat(e.target.dataset.secs);
+      const clip = clips[idx];
+      const newVal = Math.max(0, clip[field] + delta);
+      if (field === 'start' && newVal < clip.end) clip.start = newVal;
+      if (field === 'end' && newVal > clip.start) clip.end = newVal;
+      renderClips();
+    });
+  });
+  syncPasteTextFromClips();
+  saveSessionClips();
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+clipList.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  const dragging = clipList.querySelector('.dragging');
+  const after = getDragAfterElement(clipList, e.clientY);
+  if (!dragging) return;
+  if (after == null) clipList.appendChild(dragging);
+  else clipList.insertBefore(dragging, after);
+});
+
+function getDragAfterElement(container, y) {
+  const els = [...container.querySelectorAll('li:not(.dragging)')];
+  return els.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) return { offset, element: child };
+    else return closest;
+  }, { offset: -Infinity }).element;
+}
+
+function syncOrderFromDOM() {
+  const newOrder = [...clipList.querySelectorAll('li')].map(li => clips[parseInt(li.dataset.idx)]);
+  clips = newOrder;
+  renderClips();
+}
+
+searchBox.addEventListener('input', () => {
+  const q = searchBox.value.trim().toLowerCase();
+  document.querySelectorAll('.word').forEach(el => {
+    const w = el.textContent.trim().toLowerCase();
+    el.classList.toggle('match', q.length > 0 && w.includes(q));
+  });
+  if (q.length > 0) {
+    const first = document.querySelector('.word.match');
+    if (first) {
+      const wrapRect = wordStream.getBoundingClientRect();
+      const elRect = first.getBoundingClientRect();
+      wordStream.scrollTop += (elRect.top - wrapRect.top) - wordStream.clientHeight / 2 + first.offsetHeight;
+    }
+  }
+});
+
+// ---------------------------------------------------------------------
+// Text-Abgleich — reine JS-Portierung von match_paste.py (Python), damit
+// keinerlei Server nötig ist. Verhalten bewusst 1:1 wie im Original.
+// ---------------------------------------------------------------------
+
+function normalizeWord(w) {
+  return (w || '').replace(/[^\wäöüßÄÖÜ]/g, '').toLowerCase();
+}
+
+function cleanLine(line) {
+  line = line.replace(/^\s*\d{1,2}:\d{2}(:\d{2})?([.,]\d+)?\s*[-–—]?\s*/, '');
+  line = line.replace(/^\s*[A-Za-zÄÖÜäöüß0-9_\- ]{1,30}:\s+/, '');
+  return line.trim();
+}
+
+const ABBREVIATIONS = new Set([
+  'dr','prof','str','bzw','usw','ca','etc','nr','co','inc',
+  'ggf','evtl','min','std','mrd','mio','u.a','v.a','z.b','u.u',
+  'u.ä','u.dgl','u.v.a','d.h','tel','fa','hr','fr',
+]);
+
+function splitIntoSentences(text) {
+  text = text.trim();
+  const result = [];
+  let last = 0;
+  const re = /[.!?]\s+(?=[A-ZÄÖÜ„"'])/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const boundary = m.index + 1;
+    const preceding = text.slice(0, m.index);
+    const wm = preceding.match(/([\w.]+)$/);
+    const word = wm ? wm[1] : '';
+    if (/^\d+$/.test(word)) continue;
+    const wl = word.toLowerCase();
+    if (ABBREVIATIONS.has(wl.replace(/\.$/, '')) || ABBREVIATIONS.has(wl)) continue;
+    result.push(text.slice(last, boundary).trim());
+    last = re.lastIndex;
+  }
+  result.push(text.slice(last).trim());
+  return result.filter(s => s);
+}
+
+const SEPARATOR_LINE = /^[ \t ]*(?:[-=_]{3,}|\+{1,})[ \t ]*$/m;
+
+function splitParagraphs(text) {
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  text = text.replace(/﻿/g, '').replace(/​/g, '');
+
+  if (SEPARATOR_LINE.test(text)) {
+    // Globales Split an jeder Trennzeile (JS braucht dafür eine 'g'-Regex).
+    const globalSep = new RegExp(SEPARATOR_LINE.source, 'gm');
+    let paras = text.split(globalSep).map(p => cleanLine(p.replace(/\n/g, ' '))).filter(p => p);
+    return { paras, wasGuessed: false, method: 'separator' };
+  }
+
+  let paras = text.trim().split(/\n\s*\n/).map(p => cleanLine(p.replace(/\n/g, ' '))).filter(p => p);
+  if (paras.length > 1) return { paras, wasGuessed: false, method: 'blank_line' };
+
+  let wasGuessed = false, method = 'single';
+  if (paras.length <= 1 && paras.length) {
+    const sentences = splitIntoSentences(paras[0]);
+    if (sentences.length > 1) { paras = sentences; wasGuessed = true; method = 'sentence_guess'; }
+  }
+  return { paras, wasGuessed, method };
+}
+
+// Kompakte JS-Portierung von difflib.SequenceMatcher.get_matching_blocks()
+// (Ratcliff/Obershelp-Algorithmus, autojunk=False) — findet rekursiv den
+// jeweils längsten gemeinsamen Block und zerlegt links/rechts davon weiter.
+function findLongestMatch(a, b, alo, ahi, blo, bhi, b2j) {
+  let besti = alo, bestj = blo, bestsize = 0;
+  let j2len = {};
+  for (let i = alo; i < ahi; i++) {
+    const newj2len = {};
+    const indices = b2j[a[i]];
+    if (indices) {
+      for (const j of indices) {
+        if (j < blo) continue;
+        if (j >= bhi) break;
+        const k = (j2len[j - 1] || 0) + 1;
+        newj2len[j] = k;
+        if (k > bestsize) { besti = i - k + 1; bestj = j - k + 1; bestsize = k; }
+      }
+    }
+    j2len = newj2len;
+  }
+  return [besti, bestj, bestsize];
+}
+
+function getMatchingBlocks(a, b) {
+  const b2j = {};
+  for (let j = 0; j < b.length; j++) {
+    const key = b[j];
+    if (!b2j[key]) b2j[key] = [];
+    b2j[key].push(j);
+  }
+  const queue = [[0, a.length, 0, b.length]];
+  const matchingBlocks = [];
+  while (queue.length) {
+    const [alo, ahi, blo, bhi] = queue.pop();
+    const [i, j, k] = findLongestMatch(a, b, alo, ahi, blo, bhi, b2j);
+    if (k) {
+      matchingBlocks.push([i, j, k]);
+      if (alo < i && blo < j) queue.push([alo, i, blo, j]);
+      if (i + k < ahi && j + k < bhi) queue.push([i + k, ahi, j + k, bhi]);
+    }
+  }
+  matchingBlocks.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+  // Benachbarte Blöcke zusammenfassen (wie im Python-Original).
+  const merged = [];
+  let i1 = 0, j1 = 0, k1 = 0;
+  for (const [i2, j2, k2] of matchingBlocks) {
+    if (i1 + k1 === i2 && j1 + k1 === j2) { k1 += k2; }
+    else {
+      if (k1) merged.push([i1, j1, k1]);
+      i1 = i2; j1 = j2; k1 = k2;
+    }
+  }
+  if (k1) merged.push([i1, j1, k1]);
+  merged.push([a.length, b.length, 0]);
+  return merged;
+}
+
+function locateParagraph(corpusNorm, paraNorm, gapTolerance = 15) {
+  if (!paraNorm.length || !corpusNorm.length) return null;
+  const allBlocks = getMatchingBlocks(corpusNorm, paraNorm).filter(b => b[2] > 0);
+  if (!allBlocks.length) return null;
+
+  const minBlockSize = paraNorm.length > 4 ? 2 : 1;
+  let blocks = allBlocks.filter(b => b[2] >= minBlockSize);
+  if (!blocks.length) blocks = allBlocks;
+
+  let bestCluster = null, bestScore = -1;
+  let i = 0;
+  while (i < blocks.length) {
+    let j = i;
+    let total = blocks[i][2];
+    while (j + 1 < blocks.length
+           && blocks[j + 1][0] - (blocks[j][0] + blocks[j][2]) < gapTolerance
+           && blocks[j + 1][1] - (blocks[j][1] + blocks[j][2]) < gapTolerance) {
+      j++;
+      total += blocks[j][2];
+    }
+    if (total > bestScore) { bestScore = total; bestCluster = [i, j]; }
+    i = j + 1;
+  }
+
+  const [ci, cj] = bestCluster;
+  const startA = blocks[ci][0];
+  const endA = blocks[cj][0] + blocks[cj][2] - 1;
+  const coverage = bestScore / Math.max(paraNorm.length, 1);
+  return [startA, endA, coverage];
+}
+
+function mergeAdjacentMatches(matches, mergeGapWords = 2) {
+  if (!matches.length) return [];
+  const merged = [Object.assign({}, matches[0])];
+  for (const m of matches.slice(1)) {
+    const prev = merged[merged.length - 1];
+    const gap = m.start_idx - prev.end_idx;
+    if (!m.no_merge_before && gap <= mergeGapWords) {
+      prev.end_idx = Math.max(prev.end_idx, m.end_idx);
+      prev.label = prev.label.replace(/\s+$/, '') + ' ' + m.label.replace(/^\s+/, '');
+      prev.coverage = Math.min(prev.coverage, m.coverage);
+    } else {
+      merged.push(Object.assign({}, m));
+    }
+  }
+  return merged;
+}
+
+function mergeAdjacentMatchesMulti(matches, mergeGapWords = 2) {
+  if (!matches.length) return [];
+  const merged = [Object.assign({}, matches[0])];
+  for (const m of matches.slice(1)) {
+    const prev = merged[merged.length - 1];
+    const gap = m.start_idx - prev.end_idx;
+    if (!m.no_merge_before && m.source_id === prev.source_id && gap <= mergeGapWords) {
+      prev.end_idx = Math.max(prev.end_idx, m.end_idx);
+      prev.label = prev.label.replace(/\s+$/, '') + ' ' + m.label.replace(/^\s+/, '');
+      prev.coverage = Math.min(prev.coverage, m.coverage);
+    } else {
+      merged.push(Object.assign({}, m));
+    }
+  }
+  return merged;
+}
+
+const INLINE_PLUS_RE = /\s*\+\s*/;
+const INLINE_PLUS_RE_G = /\s*\+\s*/g;
+const PLUS_SEARCH_WINDOW = 300;
+
+function splitKeepPieces(text) {
+  return text.split(INLINE_PLUS_RE_G).map(s => s.trim()).filter(s => s);
+}
+
+function locateWithinWindow(corpusNorm, windowLo, windowHi, segText, gapTolerance = 15) {
+  const segWordsRaw = segText.match(/\S+/g) || [];
+  const segNorm = segWordsRaw.map(normalizeWord);
+  if (!segNorm.length) return null;
+  const windowCorpus = corpusNorm.slice(windowLo, windowHi + 1);
+  const result = locateParagraph(windowCorpus, segNorm, gapTolerance);
+  if (result === null) return null;
+  const [s, e, cov] = result;
+  return [windowLo + s, windowLo + e, cov];
+}
+
+function locatePieceForward(corpusNorm, lo, pieceText, gapTolerance = 15) {
+  const hiFull = corpusNorm.length - 1;
+  const hiNear = Math.min(hiFull, lo + PLUS_SEARCH_WINDOW);
+  const near = locateWithinWindow(corpusNorm, lo, hiNear, pieceText, gapTolerance);
+  if (near !== null && near[2] >= 0.6) return near;
+  if (hiNear < hiFull) {
+    const far = locateWithinWindow(corpusNorm, lo, hiFull, pieceText, gapTolerance);
+    if (far !== null && (near === null || far[2] > near[2])) return far;
+  }
+  return near;
+}
+
+function locatePiecesInCorpus(corpusNorm, pieces, gapTolerance = 15) {
+  const ranges = [];
+  let cursor = null;
+  for (const pieceText of pieces) {
+    let found;
+    if (cursor === null) {
+      const wordsRaw = pieceText.match(/\S+/g) || [];
+      const norm = wordsRaw.map(normalizeWord);
+      const result = locateParagraph(corpusNorm, norm, gapTolerance);
+      found = result === null ? null : result;
+    } else {
+      found = locatePieceForward(corpusNorm, cursor + 1, pieceText, gapTolerance);
+    }
+    if (found === null) { ranges.push([null, null, 0.0, pieceText]); continue; }
+    const [s, e, cov] = found;
+    ranges.push([s, e, cov, pieceText]);
+    cursor = e;
+  }
+  return ranges;
+}
+
+function locateParagraphRangesMulti(corpora, paraText, gapTolerance = 15) {
+  const hasPlus = INLINE_PLUS_RE.test(paraText.trim());
+
+  if (!hasPlus) {
+    const wordsRaw = paraText.match(/\S+/g) || [];
+    const norm = wordsRaw.map(normalizeWord);
+    let best = null;
+    for (const sid of Object.keys(corpora)) {
+      const result = locateParagraph(corpora[sid], norm, gapTolerance);
+      if (result === null) continue;
+      const [s, e, cov] = result;
+      if (best === null || cov > best[3]) best = [sid, s, e, cov];
+    }
+    if (best === null) return [null, null];
+    const [sid, s, e, cov] = best;
+    return [sid, [[s, e, cov, paraText.trim()]]];
+  }
+
+  const pieces = splitKeepPieces(paraText);
+  if (!pieces.length) return [null, null];
+
+  let best = null;
+  for (const sid of Object.keys(corpora)) {
+    const wordsRaw = pieces[0].match(/\S+/g) || [];
+    const norm = wordsRaw.map(normalizeWord);
+    const result = locateParagraph(corpora[sid], norm, gapTolerance);
+    if (result === null) continue;
+    if (best === null || result[2] > best[1][2]) best = [sid, result];
+  }
+  if (best === null) return [null, null];
+  const [sid, first] = best;
+  const corpusNorm = corpora[sid];
+
+  const ranges = [[first[0], first[1], first[2], pieces[0]]];
+  let cursor = first[1];
+  for (const pieceText of pieces.slice(1)) {
+    const found = locatePieceForward(corpusNorm, cursor + 1, pieceText, gapTolerance);
+    if (found === null) { ranges.push([null, null, 0.0, pieceText]); continue; }
+    const [s, e, cov] = found;
+    ranges.push([s, e, cov, pieceText]);
+    cursor = e;
+  }
+  return [sid, ranges];
+}
+
+function matchPastedTextMulti(sourcesForMatch, pastedText, minCoverage = 0.55, mergeGapWords = 2) {
+  const corpora = {};
+  Object.keys(sourcesForMatch).forEach(sid => {
+    corpora[sid] = sourcesForMatch[sid].words.map(w => normalizeWord(w.word));
+  });
+  const { paras, wasGuessed, method } = splitParagraphs(pastedText);
+
+  const rawMatches = [];
+  const warnings = [];
+  if (method === 'sentence_guess') {
+    warnings.push('Kein Trenner gefunden (weder Leerzeile noch eigene Zeile nur mit „+") — die Absätze wurden automatisch anhand von Satzzeichen geraten. Falls die Aufteilung nicht stimmt: Passagen mit einer eigenen Zeile trennen, die NUR ein „+" enthält.');
+  }
+
+  paras.forEach((para, i) => {
+    const idx = i + 1;
+    const [sid, ranges] = locateParagraphRangesMulti(corpora, para);
+    if (!ranges) {
+      warnings.push(`Absatz ${idx} („${para.slice(0,40)}…“) konnte in keinem geladenen Interview gefunden werden und wurde übersprungen.`);
+      return;
+    }
+    const hasCut = ranges.length > 1 || INLINE_PLUS_RE.test(para.trim());
+    ranges.forEach(([startIdx, endIdx, coverage, segText], k) => {
+      if (startIdx === null) {
+        warnings.push(`Absatz ${idx}: der Teil „${segText.slice(0,40)}…“ (per "+" markierter Schnitt) konnte nicht im Original gefunden werden und wurde übersprungen.`);
+        return;
+      }
+      if (coverage < minCoverage) {
+        const label = sourcesForMatch[sid].label;
+        warnings.push(`Absatz ${idx}: „${segText.slice(0,40)}…“ konnte nicht sicher zugeordnet werden (beste Übereinstimmung ${Math.round(coverage*100)}% in „${label}“) und wurde übersprungen.`);
+        return;
+      }
+      rawMatches.push({ source_id: sid, start_idx: startIdx, end_idx: endIdx, label: segText, coverage, no_merge_before: hasCut && k > 0 });
+    });
+  });
+
+  const merged = wasGuessed ? mergeAdjacentMatchesMulti(rawMatches, mergeGapWords) : rawMatches;
+
+  const clipsOut = merged.map(m => ({
+    source_id: m.source_id,
+    start: sourcesForMatch[m.source_id].words[m.start_idx].start,
+    end: sourcesForMatch[m.source_id].words[m.end_idx].end,
+    label: m.label,
+    coverage: Math.round(m.coverage * 100) / 100,
+  }));
+
+  return { clips: clipsOut, warnings };
+}
+
+matchPasteBtn.addEventListener('click', () => {
+  const text = pasteText.value;
+  if (!text.trim()) { pasteResult.textContent = 'Bitte zuerst Text einfügen.'; return; }
+  const sourceIds = Object.keys(sources);
+  if (!sourceIds.length) { pasteResult.textContent = 'Bitte zuerst mindestens ein Interview laden.'; return; }
+
+  matchPasteBtn.disabled = true;
+  pasteResult.textContent = 'Gleiche Text ab ...';
+
+  const sourcesForMatch = {};
+  sourceIds.forEach(id => { sourcesForMatch[id] = { label: sources[id].label, words: sources[id].wordsData.words }; });
+
+  // In einem Timeout, damit die "Gleiche Text ab..."-Meldung noch
+  // gerendert wird, bevor die (synchron laufende) Matching-Arbeit den
+  // Browser kurz blockiert.
+  setTimeout(() => {
+    let data;
+    try {
+      data = matchPastedTextMulti(sourcesForMatch, text);
+    } catch (e) {
+      matchPasteBtn.disabled = false;
+      pasteResult.textContent = 'Fehler beim Abgleich: ' + e.message;
+      return;
+    }
+    matchPasteBtn.disabled = false;
+
+    clips = data.clips.map(c => ({
+      clipId: 'c' + (clipCounter++),
+      sourceId: c.source_id,
+      start: c.start,
+      end: c.end,
+      label: c.label
+    }));
+    clips.forEach(applyClipPadding);
+    renderClips();
+
+    let msg = clips.length + ' Clip(s) erzeugt und in die Liste rechts übernommen.';
+    if (data.warnings && data.warnings.length > 0) {
+      msg += '<br><br><strong>Hinweise:</strong><ul style="margin:6px 0 0 18px; padding:0;">'
+        + data.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')
+        + '</ul>';
+    }
+    pasteResult.innerHTML = msg;
+  }, 10);
+});
+
+playSequenceBtn.addEventListener('click', () => {
+  if (clips.length === 0) return;
+  sequenceQueue = clips.map(c => ({ start: c.start, end: c.end, sourceId: c.sourceId }));
+  playSequenceBtn.classList.add('hidden');
+  stopSequenceBtn.classList.remove('hidden');
+  playNextInSequence();
+});
+
+stopSequenceBtn.addEventListener('click', () => {
+  previewPlayer.pause();
+  stopSequence();
+});
+
+clearClipsBtn.addEventListener('click', () => {
+  if (clips.length === 0) return;
+  const ok = confirm('Wirklich alle ' + clips.length + ' Clip(s) aus der Liste löschen?');
+  if (!ok) return;
+  stopSequence();
+  clips = [];
+  renderClips();
+});
+
+// ---------------------------------------------------------------------
+// Ergebnis zurückgeben: der bearbeitete Text (mit "+"-Markierungen) wird
+// als .txt heruntergeladen oder in die Zwischenablage kopiert — kein
+// XML-Export in dieser Version (macht Jonas mit der Vollversion daraus).
+// ---------------------------------------------------------------------
+
+downloadTextBtn.addEventListener('click', () => {
+  if (!pasteText.value.trim()) { exportResult.textContent = 'Noch kein Text vorhanden.'; return; }
+  const blob = new Blob([pasteText.value], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'schnitt_ergebnis.txt';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  exportResult.textContent = 'Heruntergeladen als „schnitt_ergebnis.txt" — diese Datei an Jonas zurückschicken.';
+});
+
+copyTextBtn.addEventListener('click', async () => {
+  if (!pasteText.value.trim()) { exportResult.textContent = 'Noch kein Text vorhanden.'; return; }
+  try {
+    await navigator.clipboard.writeText(pasteText.value);
+    exportResult.textContent = 'In die Zwischenablage kopiert — jetzt z.B. in eine Mail einfügen.';
+  } catch (e) {
+    exportResult.textContent = 'Kopieren fehlgeschlagen — bitte den Text oben in Schritt 3 manuell markieren und kopieren.';
+  }
+});
+
+initSessionResume();
+</script>
+</body>
+</html>
