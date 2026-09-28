@@ -132,7 +132,7 @@
 </head>
 <body>
 
-<h1>Interview-Schnitt <span style="font-size:13px; color:var(--text-dim); font-weight:400;">Kollegen-Version · Web v1</span></h1>
+<h1>Interview-Schnitt <span style="font-size:13px; color:var(--text-dim); font-weight:400;">Kollegen-Version · Web v2</span></h1>
 <div class="sub">Läuft komplett im Browser — kein Server, keine Installation. Ordner mit Video + JSON öffnen, Text bearbeiten, fertigen Schnitt-Text zurückgeben.</div>
 <div id="status-line"></div>
 
@@ -663,14 +663,88 @@ function clearPendingHighlight() {
   document.querySelectorAll('.word.selected').forEach(el => el.classList.remove('selected'));
 }
 
-// Fester Sicherheitspuffer (wie in der Vollversion) — hier ohne die
-// Server-basierte Stille-Feinjustierung, dafür sofort und ohne Wartezeit.
+// Fester Sicherheitspuffer (wie in der Vollversion).
 const CLIP_PAD_IN = 0.20;
 const CLIP_PAD_OUT = 0.50;
 
+// ---------------------------------------------------------------------
+// Feinjustierung der Schnittkanten anhand einer vom Editor VORAB
+// berechneten Lautstärkekurve (Feld "silence_rms" in der Wortzeiten-JSON,
+// falls vorhanden — ältere JSON-Dateien ohne dieses Feld funktionieren
+// weiterhin, dann bleibt es beim festen Puffer oben). Dasselbe Prinzip
+// wie die Live-Suche in der Vollversion (nächstgelegene echte Stille rund
+// um den Zeitpunkt finden und in ihre Mitte rutschen), hier aber rein aus
+// dem mitgelieferten Datensatz — synchron, ohne eigenen Server/ffmpeg.
+// ---------------------------------------------------------------------
+
+function decodeSilenceRms(sourceId) {
+  const src = sources[sourceId];
+  if (!src) return null;
+  if (src.__silenceRmsDecoded !== undefined) return src.__silenceRmsDecoded;
+  const sr = src.wordsData && src.wordsData.silence_rms;
+  if (!sr || !sr.data) { src.__silenceRmsDecoded = null; return null; }
+  try {
+    const binary = atob(sr.data);
+    const values = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) values[i] = binary.charCodeAt(i);
+    src.__silenceRmsDecoded = { values, hop: sr.hop || 0.01 };
+  } catch (e) {
+    src.__silenceRmsDecoded = null;
+  }
+  return src.__silenceRmsDecoded;
+}
+
+function refineBoundaryTimeLocal(sourceId, t) {
+  const decoded = decodeSilenceRms(sourceId);
+  if (!decoded) return null;
+  const { values, hop } = decoded;
+  const SEARCH_RADIUS = 0.35; // wie weit vom Original-Zeitpunkt aus gesucht wird
+
+  const centerIdx = Math.round(t / hop);
+  const radiusIdx = Math.max(1, Math.round(SEARCH_RADIUS / hop));
+  const lo = Math.max(0, centerIdx - radiusIdx);
+  const hi = Math.min(values.length - 1, centerIdx + radiusIdx);
+  if (lo >= hi) return null;
+
+  let localMax = 0;
+  for (let i = lo; i <= hi; i++) if (values[i] > localMax) localMax = values[i];
+  if (localMax < 3) return null; // praktisch stumm -> nichts Verlässliches zu finden
+
+  // Alles unter 15% der lautesten Stelle in der Nähe gilt als Stille/Pause
+  // (gleicher Schwellenwert wie in der Vollversion).
+  const silenceThreshold = localMax * 0.15;
+  const isQuiet = i => values[i] <= silenceThreshold;
+
+  // Vom Original-Zeitpunkt aus nach außen suchen (nicht den tiefsten Punkt
+  // im gesamten Suchfenster nehmen) — sonst kann der Schnitt über eine
+  // kurze, unmittelbar angrenzende Pause hinweg zu einer weiter entfernten
+  // Stille "springen".
+  let runIdx = -1;
+  for (let d = 0; d <= radiusIdx; d++) {
+    const iForward = centerIdx + d;
+    const iBackward = centerIdx - d;
+    if (iForward <= hi && isQuiet(iForward)) { runIdx = iForward; break; }
+    if (d > 0 && iBackward >= lo && isQuiet(iBackward)) { runIdx = iBackward; break; }
+  }
+  if (runIdx === -1) return null; // keine klare Pause in der Nähe -> Original-Zeitstempel behalten
+
+  // Die gefundene stille Zone in beide Richtungen ausdehnen und ihre Mitte
+  // als Schnittpunkt nehmen.
+  let runLo = runIdx, runHi = runIdx;
+  while (runLo - 1 >= lo && isQuiet(runLo - 1)) runLo--;
+  while (runHi + 1 <= hi && isQuiet(runHi + 1)) runHi++;
+  const bestIdx = Math.round((runLo + runHi) / 2);
+
+  return bestIdx * hop;
+}
+
 function applyClipPadding(clip) {
-  clip.start = Math.max(0, clip.start - CLIP_PAD_IN);
-  clip.end = clip.end + CLIP_PAD_OUT;
+  const newStart = refineBoundaryTimeLocal(clip.sourceId, clip.start);
+  const newEnd = refineBoundaryTimeLocal(clip.sourceId, clip.end);
+  const refinedStart = newStart != null ? newStart : clip.start;
+  const refinedEnd = newEnd != null ? newEnd : clip.end;
+  clip.start = Math.max(0, refinedStart - CLIP_PAD_IN);
+  clip.end = refinedEnd + CLIP_PAD_OUT;
 }
 
 function addClipFromRange(startId, endId) {
