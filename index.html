@@ -132,7 +132,7 @@
 </head>
 <body>
 
-<h1>Interview-Schnitt <span style="font-size:13px; color:var(--text-dim); font-weight:400;">Kollegen-Version · Web v2</span></h1>
+<h1>Interview-Schnitt <span style="font-size:13px; color:var(--text-dim); font-weight:400;">Kollegen-Version · Web v3</span></h1>
 <div class="sub">Läuft komplett im Browser — kein Server, keine Installation. Ordner mit Video + JSON öffnen, Text bearbeiten, fertigen Schnitt-Text zurückgeben.</div>
 <div id="status-line"></div>
 
@@ -190,6 +190,7 @@
         <button id="play-sequence-btn" class="secondary">▶ Vorschau Gesamt</button>
         <button id="stop-sequence-btn" class="secondary hidden">■ Stop</button>
         <button id="clear-clips-btn" class="secondary" title="Alle Clips aus der Liste löschen" style="color:var(--danger); border-color:var(--danger); padding:10px 13px;">✕</button>
+        <span id="clip-total-length" style="margin-left:auto; color:var(--gold-soft); font-size:13px; white-space:nowrap;">Gesamtlänge: 00:00:00</span>
       </div>
       <ul id="clip-list"></ul>
       <div class="hint" style="margin-top:16px;">Fertig? Den Text oben in Schritt 3 (spiegelt automatisch die Reihenfolge/den Stand hier) an Jonas zurückschicken — er macht daraus den finalen Premiere-Export.</div>
@@ -560,6 +561,23 @@ function formatTC(seconds) {
   return `${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms,3)}`;
 }
 
+// Reine Gesamtlängen-Anzeige (Stunden:Minuten:Sekunden, ohne Millisekunden).
+function formatDuration(totalSeconds) {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(h)}:${pad(m)}:${pad(sec)}`;
+}
+
+function updateClipTotalLength() {
+  const el = document.getElementById('clip-total-length');
+  if (!el) return;
+  const total = clips.reduce((sum, c) => sum + Math.max(0, c.end - c.start), 0);
+  el.textContent = 'Gesamtlänge: ' + formatDuration(total);
+}
+
 function renderWords() {
   wordStream.innerHTML = '';
   wordsData.words.forEach(w => {
@@ -862,6 +880,7 @@ function renderClips() {
   });
   syncPasteTextFromClips();
   saveSessionClips();
+  updateClipTotalLength();
 }
 
 function escapeHtml(s) {
